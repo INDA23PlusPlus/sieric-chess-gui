@@ -109,6 +109,36 @@ impl event::EventHandler<GameError> for MainState {
             }
         }
 
+        let joever_text: Option<String> = match self.game.state() {
+            chess::State::Playing => None,
+            chess::State::Checkmate => Some(
+                String::from(format!("{} Checkmate", match self.game.player() {
+                    chess::Player::White => "Black",
+                    chess::Player::Black => "Black",
+                }))
+            ),
+            chess::State::Stalemate => Some(String::from("Stalemate")),
+        };
+        if let Some(text) = joever_text {
+            canvas.draw(
+                &graphics::Mesh::new_rectangle(
+                    ctx,
+                    graphics::DrawMode::fill(),
+                    Rect::new(0., 0., win_w, win_h),
+                    graphics::Color::from([0., 0., 0., 0.5]),
+                )?,
+                Vec2::new(0., 0.),
+            );
+
+            canvas.draw(
+                graphics::Text::new(text)
+                    .set_scale(100.),
+                DrawParam::default()
+                    .dest(Vec2::new(0., 0.))
+                    .color(graphics::Color::from([1., 1., 1., 1.])),
+            );
+        }
+
         canvas.finish(ctx)?;
         return Ok(());
     }
