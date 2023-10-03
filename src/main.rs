@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, env, path};
 
-use ggez::{self, event, conf::{WindowMode, WindowSetup}, GameResult, GameError, Context, graphics::{self, Rect, DrawParam}, glam::{Vec2, IVec2}, winit::event::VirtualKeyCode};
+use ggez::{self, event, conf::{WindowMode, WindowSetup}, GameResult, GameError, Context, graphics::{self, Rect, DrawParam}, glam::{Vec2, IVec2}, winit::event::VirtualKeyCode, audio::{self, SoundSource}};
 
 fn piece_to_string(piece: &chess::Piece) -> String {
     return String::from(piece.kind.name);
@@ -8,17 +8,17 @@ fn piece_to_string(piece: &chess::Piece) -> String {
 
 struct MainState {
     game: chess::Game,
+    music: audio::Source,
     selected: Option<IVec2>,
     moves: HashMap<(i32, i32), chess::Move>,
     flip_mode: bool,
 }
 
 impl MainState {
-    fn new() -> GameResult<MainState> {
-        let game = chess::Game::new();
-
+    fn new(ctx: &mut Context) -> GameResult<MainState> {
         return Ok(MainState {
-            game,
+            game: chess::Game::new(),
+            music: audio::Source::new(ctx, "/copyright_infringement.flac")?,
             selected: None,
             moves: HashMap::new(),
             flip_mode: false,
@@ -28,6 +28,10 @@ impl MainState {
 
 impl event::EventHandler<GameError> for MainState {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
+        if !self.music.playing() {
+            let _ = self.music.play_later();
+        }
+
         return Ok(());
     }
 
@@ -216,9 +220,19 @@ impl event::EventHandler<GameError> for MainState {
 }
 
 fn main() -> GameResult {
+    let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let mut path = path::PathBuf::from(manifest_dir);
+        path.push("resources");
+        path
+    } else {
+        path::PathBuf::from("./resources")
+    };
+
     let cb = ggez::ContextBuilder::new("Chess", "EmmaEricsson")
+        .add_resource_path(resource_dir)
         .window_mode(WindowMode::default().dimensions(800., 800.))
         .window_setup(WindowSetup::default().title("Chessss"));
-    let (ctx, event_loop) = cb.build()?;
-    event::run(ctx, event_loop, MainState::new()?);
+    let (mut ctx, event_loop) = cb.build()?;
+    let state = MainState::new(&mut ctx)?;
+    event::run(ctx, event_loop, state);
 }
