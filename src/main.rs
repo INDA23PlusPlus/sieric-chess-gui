@@ -2,11 +2,16 @@ use std::{collections::HashMap, env, path};
 
 use ggez::{self, event, conf::{WindowMode, WindowSetup}, GameResult, GameError, Context, graphics::{self, Rect, DrawParam}, glam::{Vec2, IVec2}, winit::event::VirtualKeyCode, audio::{self, SoundSource}};
 
-fn piece_to_string(piece: &chess::Piece) -> String {
-    return String::from(piece.kind.name);
+#[allow(dead_code)]
+enum GameState {
+    Init,
+    Hosting,
+    Joining,
+    InGame,
 }
 
 struct MainState {
+    state: GameState,
     game: chess::Game,
     music: audio::Source,
     selected: Option<IVec2>,
@@ -17,6 +22,7 @@ struct MainState {
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         return Ok(MainState {
+            state: GameState::Init,
             game: chess::Game::new(),
             music: audio::Source::new(ctx, "/copyright_infringement.flac")?,
             selected: None,
@@ -24,18 +30,8 @@ impl MainState {
             flip_mode: false,
         });
     }
-}
 
-impl event::EventHandler<GameError> for MainState {
-    fn update(&mut self, _ctx: &mut Context) -> GameResult {
-        if !self.music.playing() {
-            let _ = self.music.play_later();
-        }
-
-        return Ok(());
-    }
-
-    fn draw(&mut self, ctx: &mut Context) -> GameResult {
+    fn init_draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_frame(
             ctx,
             graphics::Color::from([0.1, 0.2, 0.3, 1.0])
@@ -61,7 +57,7 @@ impl event::EventHandler<GameError> for MainState {
                 let (piece_white, piece_text) = match square {
                     chess::Square::Occupied(piece) => (
                         piece.is_player(chess::Player::White),
-                        piece_to_string(piece),
+                        String::from(piece.kind.name),
                     ),
                     _ => (true, String::from(" ")),
                 };
@@ -118,7 +114,7 @@ impl event::EventHandler<GameError> for MainState {
             chess::State::Checkmate => Some(
                 String::from(format!("{} Checkmate", match self.game.player() {
                     chess::Player::White => "Black",
-                    chess::Player::Black => "Black",
+                    chess::Player::Black => "White",
                 }))
             ),
             chess::State::Stalemate => Some(String::from("Stalemate")),
@@ -147,7 +143,7 @@ impl event::EventHandler<GameError> for MainState {
         return Ok(());
     }
 
-    fn mouse_button_down_event(
+    fn init_mouse_button_down_event(
         &mut self,
         ctx: &mut Context,
         _button: event::MouseButton,
@@ -202,20 +198,75 @@ impl event::EventHandler<GameError> for MainState {
         return Ok(());
     }
 
-    fn key_down_event(
+    fn init_key_down_event(
         &mut self,
-        _ctx: &mut Context,
+        ctx: &mut Context,
         input: ggez::input::keyboard::KeyInput,
         _repeated: bool,
     ) -> GameResult {
         if let Some(key) = input.keycode {
             match key {
                 VirtualKeyCode::F => self.flip_mode = !self.flip_mode,
+                VirtualKeyCode::Q => ctx.request_quit(),
+                VirtualKeyCode::M => if self.music.paused() {
+                    self.music.resume();
+                } else {
+                    self.music.pause();
+                },
                 _ => (),
             }
         }
 
         return Ok(());
+    }
+}
+
+impl event::EventHandler<GameError> for MainState {
+    fn update(&mut self, _ctx: &mut Context) -> GameResult {
+        if !self.music.playing() {
+            let _ = self.music.play_later();
+            self.music.pause();
+        }
+
+        return Ok(());
+    }
+
+    fn draw(&mut self, ctx: &mut Context) -> GameResult {
+        use GameState::*;
+
+        return match self.state {
+            Init => self.init_draw(ctx),
+            _ => Ok(()),
+        };
+    }
+
+    fn mouse_button_down_event(
+        &mut self,
+        ctx: &mut Context,
+        button: event::MouseButton,
+        x: f32,
+        y: f32,
+    ) -> GameResult {
+        use GameState::*;
+
+        return match self.state {
+            Init => self.init_mouse_button_down_event(ctx, button, x, y),
+            _ => Ok(()),
+        };
+    }
+
+    fn key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        input: ggez::input::keyboard::KeyInput,
+        repeated: bool,
+    ) -> GameResult {
+        use GameState::*;
+
+        return match self.state {
+            Init => self.init_key_down_event(ctx, input, repeated),
+            _ => Ok(()),
+        };
     }
 }
 
