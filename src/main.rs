@@ -1,3 +1,9 @@
+mod chess_engine;
+mod local_engine;
+
+use chess_engine::*;
+use local_engine::LocalGame;
+
 use std::{collections::HashMap, env, path};
 
 use ggez::{self, event, GameResult, GameError, Context};
@@ -15,20 +21,20 @@ enum GameState {
     InGame,
 }
 
-struct MainState {
+struct MainState<'a> {
     state: GameState,
-    game: chess::Game,
+    game: Box<dyn ChessGame + 'a>,
     music: audio::Source,
     selected: Option<IVec2>,
-    moves: HashMap<(i32, i32), chess::Move>,
+    moves: HashMap<ChessLoc, ChessMove>,
     flip_mode: bool,
 }
 
-impl MainState {
-    fn new(ctx: &mut Context) -> GameResult<MainState> {
+impl<'a> MainState<'a> {
+    fn new(ctx: &mut Context) -> GameResult<MainState<'a>> {
         return Ok(MainState {
             state: GameState::InGame,
-            game: chess::Game::new(),
+            game: Box::new(LocalGame::new()),
             music: audio::Source::new(ctx, "/copyright_infringement.flac")?,
             selected: None,
             moves: HashMap::new(),
@@ -50,22 +56,14 @@ impl MainState {
                     (win_w/8.) * j as f32,
                     (win_h/8.) * fake_i as f32,
                 );
-                let i = if self.game.player() == chess::Player::Black
+                let i = if !self.game.get_player()
                     && self.flip_mode {
                     fake_i
                 } else {
                     7 - fake_i
                 };
 
-                let board = self.game.board();
-                let square = board.at(chess::Loc {x: j, y: i });
-                let (piece_white, piece_text) = match square {
-                    chess::Square::Occupied(piece) => (
-                        piece.is_player(chess::Player::White),
-                        String::from(piece.kind.name),
-                    ),
-                    _ => (true, String::from(" ")),
-                };
+                let (piece_white, piece_text) = self.game.get_piece(&(j, i));
 
                 canvas.draw(
                     &graphics::Mesh::new_rectangle(
@@ -88,7 +86,7 @@ impl MainState {
                                 ctx,
                                 graphics::DrawMode::fill(),
                                 Rect::new(0., 0., win_w/8., win_h/8.),
-                                if mv.is_capture() {
+                                if mv.capture {
                                     graphics::Color::from([1., 0., 0., 0.5])
                                 } else {
                                     graphics::Color::from([0., 0., 1., 0.5])
@@ -114,15 +112,12 @@ impl MainState {
             }
         }
 
-        let joever_text: Option<String> = match self.game.state() {
-            chess::State::Playing => None,
-            chess::State::Checkmate => Some(
-                String::from(format!("{} Checkmate", match self.game.player() {
-                    chess::Player::White => "Black",
-                    chess::Player::Black => "White",
-                }))
-            ),
-            chess::State::Stalemate => Some(String::from("Stalemate")),
+        let joever_text: Option<String> = match self.game.get_state() {
+            ChessState::Ongoing => None,
+            ChessState::JoeverBlack => Some(String::from("Black Checkmate")),
+            ChessState::JoeverWhite => Some(String::from("White Checkmate")),
+            ChessState::JoeverDraw => Some(String::from("Stalemate")),
+            ChessState::JoeverIndeterminate => Some(String::from("tu madre")),
         };
         if let Some(text) = joever_text {
             canvas.draw(
@@ -159,7 +154,7 @@ impl MainState {
 
         let pos = IVec2::new(
             (x*8. / win_w).floor() as i32,
-            if self.game.player() == chess::Player::Black && self.flip_mode {
+            if !self.game.get_player() && self.flip_mode {
                 (y*8. / win_h).floor() as i32
             } else {
                 7 - (y*8. / win_h).floor() as i32
@@ -167,7 +162,7 @@ impl MainState {
         );
         match self.moves.get(&(pos.x, pos.y)) {
             Some(mv) => {
-                self.game.play_move(&mv);
+                self.game.apply_move(&mv);
                 self.selected = None;
                 self.moves = HashMap::new();
                 return Ok(());
@@ -182,23 +177,7 @@ impl MainState {
         }
         self.selected = Some(pos);
 
-        let board = self.game.board();
-        let loc = chess::Loc { x: pos.x, y: pos.y };
-        let square = board.at(loc);
-
-        let moves = match square {
-            chess::Square::Occupied(_) => self.game.get_moves(Some(loc), None),
-            _ => Vec::new(),
-        };
-        self.moves = HashMap::new();
-        for mv in moves {
-            if let Some(kind) = mv.is_promotion() {
-                if kind.name != "Q" {
-                    continue;
-                }
-            }
-            self.moves.insert((mv.to.x, mv.to.y), mv);
-        }
+        self.moves = self.game.get_moves(&(pos.x, pos.y));
 
         return Ok(());
     }
@@ -226,7 +205,7 @@ impl MainState {
     }
 }
 
-impl event::EventHandler<GameError> for MainState {
+impl event::EventHandler<GameError> for MainState<'_> {
     fn update(&mut self, _ctx: &mut Context) -> GameResult {
         if !self.music.playing() {
             let _ = self.music.play_later();
