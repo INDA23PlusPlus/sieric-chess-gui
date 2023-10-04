@@ -1,6 +1,11 @@
 use std::{collections::HashMap, env, path};
 
-use ggez::{self, event, conf::{WindowMode, WindowSetup}, GameResult, GameError, Context, graphics::{self, Rect, DrawParam}, glam::{Vec2, IVec2}, winit::event::VirtualKeyCode, audio::{self, SoundSource}};
+use ggez::{self, event, GameResult, GameError, Context};
+use ggez::winit::event::VirtualKeyCode;
+use ggez::glam::*;
+use ggez::audio::{self, SoundSource};
+use ggez::graphics::{self, Rect, DrawParam};
+use ggez::conf::{WindowMode, WindowSetup};
 
 #[allow(dead_code)]
 enum GameState {
@@ -22,7 +27,7 @@ struct MainState {
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<MainState> {
         return Ok(MainState {
-            state: GameState::Init,
+            state: GameState::InGame,
             game: chess::Game::new(),
             music: audio::Source::new(ctx, "/copyright_infringement.flac")?,
             selected: None,
@@ -31,7 +36,7 @@ impl MainState {
         });
     }
 
-    fn init_draw(&mut self, ctx: &mut Context) -> GameResult {
+    fn ingame_draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_frame(
             ctx,
             graphics::Color::from([0.1, 0.2, 0.3, 1.0])
@@ -143,7 +148,7 @@ impl MainState {
         return Ok(());
     }
 
-    fn init_mouse_button_down_event(
+    fn ingame_mouse_button_down_event(
         &mut self,
         ctx: &mut Context,
         _button: event::MouseButton,
@@ -198,7 +203,7 @@ impl MainState {
         return Ok(());
     }
 
-    fn init_key_down_event(
+    fn ingame_key_down_event(
         &mut self,
         ctx: &mut Context,
         input: ggez::input::keyboard::KeyInput,
@@ -235,7 +240,7 @@ impl event::EventHandler<GameError> for MainState {
         use GameState::*;
 
         return match self.state {
-            Init => self.init_draw(ctx),
+            InGame => self.ingame_draw(ctx),
             _ => Ok(()),
         };
     }
@@ -250,7 +255,7 @@ impl event::EventHandler<GameError> for MainState {
         use GameState::*;
 
         return match self.state {
-            Init => self.init_mouse_button_down_event(ctx, button, x, y),
+            InGame => self.ingame_mouse_button_down_event(ctx, button, x, y),
             _ => Ok(()),
         };
     }
@@ -264,7 +269,7 @@ impl event::EventHandler<GameError> for MainState {
         use GameState::*;
 
         return match self.state {
-            Init => self.init_key_down_event(ctx, input, repeated),
+            InGame => self.ingame_key_down_event(ctx, input, repeated),
             _ => Ok(()),
         };
     }
