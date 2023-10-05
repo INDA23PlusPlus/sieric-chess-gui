@@ -34,8 +34,6 @@ impl ChessGame for LocalGame {
                 from,
                 to,
                 capture: mv.is_capture(),
-                en_passant: mv.is_passant(),
-                castle: mv.is_castle(),
                 promotion: mv.is_promotion().is_some(),
             });
         }
@@ -43,7 +41,7 @@ impl ChessGame for LocalGame {
         return map;
     }
 
-    fn apply_move(&mut self, mv2: &ChessMove) {
+    fn apply_move(&mut self, mv2: &ChessMove) -> bool {
         let from = Loc { x: mv2.from.0, y: mv2.from.1 };
         let to = Loc { x: mv2.to.0, y: mv2.to.1 };
 
@@ -56,7 +54,9 @@ impl ChessGame for LocalGame {
 
         if let Some(mv) = mv {
             self.game.play_move(&mv);
+            return true;
         }
+        return false;
     }
 
     fn get_piece(&mut self, loc: &ChessLoc) -> (bool, String) {

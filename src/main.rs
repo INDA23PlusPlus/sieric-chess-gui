@@ -1,8 +1,10 @@
 mod chess_engine;
 mod local_engine;
+mod remote_engine;
 
 use chess_engine::*;
 use local_engine::LocalGame;
+use remote_engine::RemoteGame;
 
 use std::{collections::HashMap, env, path};
 
@@ -27,6 +29,8 @@ struct MainState<'a> {
     music: audio::Source,
     selected: Option<IVec2>,
     moves: HashMap<ChessLoc, ChessMove>,
+    turn: usize,
+    can_wait: bool,
     flip_mode: bool,
 }
 
@@ -34,10 +38,12 @@ impl<'a> MainState<'a> {
     fn new(ctx: &mut Context) -> GameResult<MainState<'a>> {
         return Ok(MainState {
             state: GameState::InGame,
-            game: Box::new(LocalGame::new()),
+            game: Box::new(RemoteGame::new()?),
             music: audio::Source::new(ctx, "/copyright_infringement.flac")?,
             selected: None,
             moves: HashMap::new(),
+            turn: 0,
+            can_wait: false,
             flip_mode: false,
         });
     }
@@ -140,6 +146,9 @@ impl<'a> MainState<'a> {
         }
 
         canvas.finish(ctx)?;
+
+        self.can_wait = self.turn % 2 == 1;
+
         return Ok(());
     }
 
@@ -162,7 +171,12 @@ impl<'a> MainState<'a> {
         );
         match self.moves.get(&(pos.x, pos.y)) {
             Some(mv) => {
-                self.game.apply_move(&mv);
+                if self.turn % 2 == 0 {
+                    if self.game.apply_move(&mv) {
+                        self.turn += 1;
+                    }
+                }
+
                 self.selected = None;
                 self.moves = HashMap::new();
                 return Ok(());
@@ -210,6 +224,14 @@ impl event::EventHandler<GameError> for MainState<'_> {
         if !self.music.playing() {
             let _ = self.music.play_later();
             self.music.pause();
+        }
+
+        /* this is so incredibly bad and probably buggy */
+        if self.can_wait {
+            if self.game.wait_move() {
+                self.turn += 1;
+            }
+            self.can_wait = false;
         }
 
         return Ok(());

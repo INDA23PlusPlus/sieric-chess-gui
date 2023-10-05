@@ -7,4 +7,7 @@ edition = "2021"
 
 [dependencies]
 chess = { git = "https://github.com/INDA23PlusPlus/tombergm-chess.git" }
+chess_network_protocol = { package="chess-network-protocol", git = "https://github.com/INDA23PlusPlus/chess-network-protocol.git" }
 ggez = "0.9.3"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }

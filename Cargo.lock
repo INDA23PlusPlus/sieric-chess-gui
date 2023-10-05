@@ -393,6 +393,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "chess-network-protocol"
+version = "0.1.0"
+source = "git+https://github.com/INDA23PlusPlus/chess-network-protocol.git#2374674692a83450550264dfa8c1c2e164ed9712"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "clang-sys"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2098,7 +2107,10 @@ name = "sieric-chess-gui"
 version = "0.1.0"
 dependencies = [
  "chess",
+ "chess-network-protocol",
  "ggez",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
