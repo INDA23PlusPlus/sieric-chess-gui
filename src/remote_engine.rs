@@ -45,6 +45,7 @@ impl RemoteGame {
         serde_json::to_writer(&stream, &handshake)?;
 
         let s2ch = ServerToClientHandshake::deserialize(&mut de)?;
+        println!("Received s2ch: {:?}", s2ch);
 
         return Ok(RemoteGame {
             stream,
@@ -111,10 +112,13 @@ impl ChessGame for RemoteGame {
 
         let mut de = serde_json::Deserializer::from_reader(&self.stream);
 
+        println!("<Waiting legal");
         let is_legal = match ServerToClient::deserialize(&mut de) {
             Ok(a) => a,
             _ => return false,
         };
+        println!("{is_legal:?}");
+        println!(">Received legal");
 
         return match is_legal {
             ServerToClient::State { board, moves, joever, move_made: _ } => {
@@ -143,10 +147,13 @@ impl ChessGame for RemoteGame {
 
         let mut de = serde_json::Deserializer::from_reader(&self.stream);
 
+        println!("<Waiting server_move");
         let server_move = match ServerToClient::deserialize(&mut de) {
             Ok(a) => a,
             _ => return false,
         };
+        println!("{server_move:?}");
+        println!(">Received server_move");
 
         return match server_move {
             ServerToClient::State { board, moves, joever, move_made: _ } => {
@@ -163,7 +170,7 @@ impl ChessGame for RemoteGame {
         return parse_piece(&self.board[loc.1 as usize][loc.0 as usize]);
     }
 
-    fn get_player(&mut self) -> bool {
+    fn get_player(&self) -> bool {
         return self.color == Color::White;
     }
 

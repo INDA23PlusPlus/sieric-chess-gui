@@ -3,6 +3,17 @@ use std::collections::HashMap;
 use chess::*;
 use crate::chess_engine::*;
 
+fn to_chess_move(mv: &Move) -> ChessMove {
+    let from = (mv.from.x, mv.from.y);
+    let to = (mv.to.x, mv.to.y);
+    return ChessMove {
+        from,
+        to,
+        capture: mv.is_capture(),
+        promotion: mv.is_promotion().is_some(),
+    };
+}
+
 pub struct LocalGame {
     game: Game,
 }
@@ -12,6 +23,15 @@ impl LocalGame {
         return LocalGame {
             game: Game::new(),
         };
+    }
+
+    pub fn get_all_moves(&self) -> Vec<ChessMove> {
+        let moves = self.game.get_moves(None, None);
+        return moves.iter().map(to_chess_move).collect();
+    }
+
+    pub fn get_board(&self) -> [Square; 8*8] {
+        return self.game.board().squares;
     }
 }
 
@@ -28,14 +48,7 @@ impl ChessGame for LocalGame {
                 }
             }
 
-            let from = (mv.from.x, mv.from.y);
-            let to = (mv.to.x, mv.to.y);
-            map.insert(to, ChessMove {
-                from,
-                to,
-                capture: mv.is_capture(),
-                promotion: mv.is_promotion().is_some(),
-            });
+            map.insert((mv.to.x, mv.to.y), to_chess_move(&mv));
         }
 
         return map;
@@ -69,7 +82,7 @@ impl ChessGame for LocalGame {
         };
     }
 
-    fn get_player(&mut self) -> bool {
+    fn get_player(&self) -> bool {
         return self.game.player() == Player::White;
     }
 

@@ -61,7 +61,7 @@ pub trait ChessGame {
     /**
      * Return the current player ([true] for white, [false] for black).
      */
-    fn get_player(&mut self) -> bool;
+    fn get_player(&self) -> bool;
 
     /**
      * Return the current state of the game.

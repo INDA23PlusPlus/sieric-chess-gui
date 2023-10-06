@@ -1,10 +1,12 @@
 mod chess_engine;
 mod local_engine;
 mod remote_engine;
+mod remote_host_engine;
 
 use chess_engine::*;
 use local_engine::LocalGame;
 use remote_engine::RemoteGame;
+use remote_host_engine::RemoteHostGame;
 
 use std::{collections::HashMap, env, path};
 
@@ -39,8 +41,6 @@ impl<'a> MainState<'a> {
     fn new(ctx: &mut Context) -> GameResult<MainState<'a>> {
         return Ok(MainState {
             state: GameState::Init,
-            // game: Box::new(RemoteGame::new()?),
-            // game: Some(Box::new(LocalGame::new())),
             game: None,
             buf: String::new(),
             music: audio::Source::new(ctx, "/copyright_infringement.flac")?,
@@ -330,7 +330,8 @@ q) Quit")
                 },
 
                 VirtualKeyCode::Return => {
-                    self.game = Some(Box::new(RemoteGame::new(&self.buf)?));
+                    self.game =
+                        Some(Box::new(RemoteGame::new(&self.buf)?));
                     self.state = GameState::InGame;
                 },
 
@@ -388,7 +389,9 @@ q) Quit")
                 },
 
                 VirtualKeyCode::Return => {
-                    todo!();
+                    self.game =
+                        Some(Box::new(RemoteHostGame::new(&self.buf)?));
+                    self.state = GameState::InGame;
                 },
 
                 _ => (),
