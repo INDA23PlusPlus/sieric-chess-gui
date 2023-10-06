@@ -25,7 +25,8 @@ enum GameState {
 
 struct MainState<'a> {
     state: GameState,
-    game: Box<dyn ChessGame + 'a>,
+    game: Option<Box<dyn ChessGame + 'a>>,
+    buf: String,
     music: audio::Source,
     selected: Option<IVec2>,
     moves: HashMap<ChessLoc, ChessMove>,
@@ -37,8 +38,11 @@ struct MainState<'a> {
 impl<'a> MainState<'a> {
     fn new(ctx: &mut Context) -> GameResult<MainState<'a>> {
         return Ok(MainState {
-            state: GameState::InGame,
-            game: Box::new(RemoteGame::new()?),
+            state: GameState::Init,
+            // game: Box::new(RemoteGame::new()?),
+            // game: Some(Box::new(LocalGame::new())),
+            game: None,
+            buf: String::new(),
             music: audio::Source::new(ctx, "/copyright_infringement.flac")?,
             selected: None,
             moves: HashMap::new(),
@@ -48,6 +52,7 @@ impl<'a> MainState<'a> {
         });
     }
 
+/********************** GameState::InGame **********************/
     fn ingame_draw(&mut self, ctx: &mut Context) -> GameResult {
         let mut canvas = graphics::Canvas::from_frame(
             ctx,
@@ -62,14 +67,15 @@ impl<'a> MainState<'a> {
                     (win_w/8.) * j as f32,
                     (win_h/8.) * fake_i as f32,
                 );
-                let i = if !self.game.get_player()
+                let i = if !self.game.as_mut().unwrap().get_player()
                     && self.flip_mode {
                     fake_i
                 } else {
                     7 - fake_i
                 };
 
-                let (piece_white, piece_text) = self.game.get_piece(&(j, i));
+                let (piece_white, piece_text)
+                    = self.game.as_mut().unwrap().get_piece(&(j, i));
 
                 canvas.draw(
                     &graphics::Mesh::new_rectangle(
@@ -118,7 +124,8 @@ impl<'a> MainState<'a> {
             }
         }
 
-        let joever_text: Option<String> = match self.game.get_state() {
+        let joever_text: Option<String>
+            = match self.game.as_mut().unwrap().get_state() {
             ChessState::Ongoing => None,
             ChessState::JoeverBlack => Some(String::from("Black Checkmate")),
             ChessState::JoeverWhite => Some(String::from("White Checkmate")),
@@ -163,7 +170,7 @@ impl<'a> MainState<'a> {
 
         let pos = IVec2::new(
             (x*8. / win_w).floor() as i32,
-            if !self.game.get_player() && self.flip_mode {
+            if !self.game.as_mut().unwrap().get_player() && self.flip_mode {
                 (y*8. / win_h).floor() as i32
             } else {
                 7 - (y*8. / win_h).floor() as i32
@@ -172,7 +179,7 @@ impl<'a> MainState<'a> {
         match self.moves.get(&(pos.x, pos.y)) {
             Some(mv) => {
                 if self.turn % 2 == 0 {
-                    if self.game.apply_move(&mv) {
+                    if self.game.as_mut().unwrap().apply_move(&mv) {
                         self.turn += 1;
                     }
                 }
@@ -191,7 +198,7 @@ impl<'a> MainState<'a> {
         }
         self.selected = Some(pos);
 
-        self.moves = self.game.get_moves(&(pos.x, pos.y));
+        self.moves = self.game.as_mut().unwrap().get_moves(&(pos.x, pos.y));
 
         return Ok(());
     }
@@ -217,6 +224,118 @@ impl<'a> MainState<'a> {
 
         return Ok(());
     }
+
+/********************** GameState::Init **********************/
+    fn init_draw(&mut self, ctx: &mut Context) -> GameResult {
+        let mut canvas = graphics::Canvas::from_frame(
+            ctx,
+            graphics::Color::from([0.1, 0.2, 0.3, 1.0])
+        );
+
+        canvas.draw(
+            graphics::Text::new("Select a gamemode by pressing
+a number key:
+1) Local game
+2) Join remote
+3) Host remote
+q) Quit")
+                .set_scale(50.),
+            DrawParam::default()
+                .dest(Vec2::new(0., 0.))
+                .color(graphics::Color::from([1., 1., 1., 1.])),
+        );
+
+        canvas.finish(ctx)?;
+
+        return Ok(());
+    }
+
+    fn init_key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        input: ggez::input::keyboard::KeyInput,
+        _repeated: bool,
+    ) -> GameResult {
+        if let Some(key) = input.keycode {
+            match key {
+                VirtualKeyCode::Q => ctx.request_quit(),
+
+                /* Play local game */
+                VirtualKeyCode::Key1 => {
+                    self.game = Some(Box::new(LocalGame::new()));
+                    self.state = GameState::InGame;
+                },
+
+                /* Join remote game */
+                VirtualKeyCode::Key2
+                    => self.state = GameState::Joining,
+
+                /* TODO: host remote game */
+                VirtualKeyCode::Key3
+                    => self.state = GameState::Init,
+                _ => (),
+            }
+        }
+
+        return Ok(());
+    }
+
+/********************** GameState::Joining **********************/
+    fn joining_draw(&mut self, ctx: &mut Context) -> GameResult {
+        let mut canvas = graphics::Canvas::from_frame(
+            ctx,
+            graphics::Color::from([0.1, 0.2, 0.3, 1.0])
+        );
+
+        canvas.draw(
+            graphics::Text::new(format!("Type IP:port (q to return)\n{}", self.buf))
+                .set_scale(50.),
+            DrawParam::default()
+                .dest(Vec2::new(0., 0.))
+                .color(graphics::Color::from([1., 1., 1., 1.])),
+        );
+
+        canvas.finish(ctx)?;
+
+        return Ok(());
+    }
+
+    fn joining_key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        input: ggez::input::keyboard::KeyInput,
+        _repeated: bool,
+    ) -> GameResult {
+        if let Some(key) = input.keycode {
+            match key {
+                VirtualKeyCode::Key1 => self.buf.push('1'),
+                VirtualKeyCode::Key2 => self.buf.push('2'),
+                VirtualKeyCode::Key3 => self.buf.push('3'),
+                VirtualKeyCode::Key4 => self.buf.push('4'),
+                VirtualKeyCode::Key5 => self.buf.push('5'),
+                VirtualKeyCode::Key6 => self.buf.push('6'),
+                VirtualKeyCode::Key7 => self.buf.push('7'),
+                VirtualKeyCode::Key8 => self.buf.push('8'),
+                VirtualKeyCode::Key9 => self.buf.push('9'),
+                VirtualKeyCode::Key0 => self.buf.push('0'),
+
+                VirtualKeyCode::Period => self.buf.push('.'),
+                VirtualKeyCode::Colon => self.buf.push(':'),
+
+                VirtualKeyCode::Back => _ = self.buf.pop(),
+                VirtualKeyCode::Q => self.state = GameState::Init,
+
+                VirtualKeyCode::Return => {
+                    self.game = Some(Box::new(RemoteGame::new(&self.buf)?));
+                    self.state = GameState::InGame;
+                },
+
+                _ => (),
+            }
+        }
+
+        return Ok(());
+    }
 }
 
 impl event::EventHandler<GameError> for MainState<'_> {
@@ -228,7 +347,7 @@ impl event::EventHandler<GameError> for MainState<'_> {
 
         /* this is so incredibly bad and probably buggy */
         if self.can_wait {
-            if self.game.wait_move() {
+            if self.game.as_mut().unwrap().wait_move() {
                 self.turn += 1;
             }
             self.can_wait = false;
@@ -241,6 +360,8 @@ impl event::EventHandler<GameError> for MainState<'_> {
         use GameState::*;
 
         return match self.state {
+            Init => self.init_draw(ctx),
+            Joining => self.joining_draw(ctx),
             InGame => self.ingame_draw(ctx),
             _ => Ok(()),
         };
@@ -270,6 +391,8 @@ impl event::EventHandler<GameError> for MainState<'_> {
         use GameState::*;
 
         return match self.state {
+            Init => self.init_key_down_event(ctx, input, repeated),
+            Joining => self.joining_key_down_event(ctx, input, repeated),
             InGame => self.ingame_key_down_event(ctx, input, repeated),
             _ => Ok(()),
         };

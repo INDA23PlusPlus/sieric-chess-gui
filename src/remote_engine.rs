@@ -34,8 +34,8 @@ pub struct RemoteGame {
 }
 
 impl RemoteGame {
-    pub fn new() -> std::io::Result<Self> {
-        let stream = TcpStream::connect("127.0.0.1:5000")?;
+    pub fn new(ip: &String) -> std::io::Result<Self> {
+        let stream = TcpStream::connect(ip)?;
         let mut de = serde_json::Deserializer::from_reader(&stream);
         let server_color = Color::Black;
 
