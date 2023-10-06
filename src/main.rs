@@ -270,9 +270,9 @@ q) Quit")
                 VirtualKeyCode::Key2
                     => self.state = GameState::Joining,
 
-                /* TODO: host remote game */
+                /* Host remote game */
                 VirtualKeyCode::Key3
-                    => self.state = GameState::Init,
+                    => self.state = GameState::Hosting,
                 _ => (),
             }
         }
@@ -288,7 +288,8 @@ q) Quit")
         );
 
         canvas.draw(
-            graphics::Text::new(format!("Type IP:port (q to return)\n{}", self.buf))
+            graphics::Text::new(format!("Type IP:port (q to return)\n{}",
+                                        self.buf))
                 .set_scale(50.),
             DrawParam::default()
                 .dest(Vec2::new(0., 0.))
@@ -323,11 +324,71 @@ q) Quit")
                 VirtualKeyCode::Colon => self.buf.push(':'),
 
                 VirtualKeyCode::Back => _ = self.buf.pop(),
-                VirtualKeyCode::Q => self.state = GameState::Init,
+                VirtualKeyCode::Q => {
+                    self.state = GameState::Init;
+                    self.buf = String::new();
+                },
 
                 VirtualKeyCode::Return => {
                     self.game = Some(Box::new(RemoteGame::new(&self.buf)?));
                     self.state = GameState::InGame;
+                },
+
+                _ => (),
+            }
+        }
+
+        return Ok(());
+    }
+
+/********************** GameState::Hosting **********************/
+    fn hosting_draw(&mut self, ctx: &mut Context) -> GameResult {
+        let mut canvas = graphics::Canvas::from_frame(
+            ctx,
+            graphics::Color::from([0.1, 0.2, 0.3, 1.0])
+        );
+
+        canvas.draw(
+            graphics::Text::new(format!("Type port (q to return)\n{}",
+                                        self.buf))
+                .set_scale(50.),
+            DrawParam::default()
+                .dest(Vec2::new(0., 0.))
+                .color(graphics::Color::from([1., 1., 1., 1.])),
+        );
+
+        canvas.finish(ctx)?;
+
+        return Ok(());
+    }
+
+    fn hosting_key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        input: ggez::input::keyboard::KeyInput,
+        _repeated: bool,
+    ) -> GameResult {
+        if let Some(key) = input.keycode {
+            match key {
+                VirtualKeyCode::Key1 => self.buf.push('1'),
+                VirtualKeyCode::Key2 => self.buf.push('2'),
+                VirtualKeyCode::Key3 => self.buf.push('3'),
+                VirtualKeyCode::Key4 => self.buf.push('4'),
+                VirtualKeyCode::Key5 => self.buf.push('5'),
+                VirtualKeyCode::Key6 => self.buf.push('6'),
+                VirtualKeyCode::Key7 => self.buf.push('7'),
+                VirtualKeyCode::Key8 => self.buf.push('8'),
+                VirtualKeyCode::Key9 => self.buf.push('9'),
+                VirtualKeyCode::Key0 => self.buf.push('0'),
+
+                VirtualKeyCode::Back => _ = self.buf.pop(),
+                VirtualKeyCode::Q => {
+                    self.state = GameState::Init;
+                    self.buf = String::new();
+                },
+
+                VirtualKeyCode::Return => {
+                    todo!();
                 },
 
                 _ => (),
@@ -362,8 +423,8 @@ impl event::EventHandler<GameError> for MainState<'_> {
         return match self.state {
             Init => self.init_draw(ctx),
             Joining => self.joining_draw(ctx),
+            Hosting => self.hosting_draw(ctx),
             InGame => self.ingame_draw(ctx),
-            _ => Ok(()),
         };
     }
 
@@ -393,8 +454,8 @@ impl event::EventHandler<GameError> for MainState<'_> {
         return match self.state {
             Init => self.init_key_down_event(ctx, input, repeated),
             Joining => self.joining_key_down_event(ctx, input, repeated),
+            Hosting => self.hosting_key_down_event(ctx, input, repeated),
             InGame => self.ingame_key_down_event(ctx, input, repeated),
-            _ => Ok(()),
         };
     }
 }
