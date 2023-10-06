@@ -69,6 +69,7 @@ impl RemoteHostGame {
             moves: game.get_proto_moves(),
             joever: Joever::Ongoing,
         };
+        println!("Send S2CH");
         serde_json::to_writer(&game.stream, &s2ch)?;
 
         /* the client is white and makes a move */
@@ -101,8 +102,8 @@ impl RemoteHostGame {
                             joever: Joever::Ongoing,
                             message: String::from("tu madre"),
                         };
+                        println!("Send illegal move");
                         serde_json::to_writer(&self.stream, &s2c)?;
-                        done = false;
                     }
                 },
                 ClientToServer::Resign => todo!(),
@@ -111,7 +112,8 @@ impl RemoteHostGame {
         }
 
         let mv = self.last_client_move;
-        self.apply_move(&self.move_to_chess_move(&mv));
+        self.engine.apply_move(&self.move_to_chess_move(&mv));
+        println!("Send legal move");
         self.update_client(&mv)?;
 
         return Ok(());
@@ -200,6 +202,7 @@ impl ChessGame for RemoteHostGame {
     fn apply_move(&mut self, mv: &ChessMove) -> bool {
         let ret = self.engine.apply_move(mv);
 
+        println!("Send server move");
         let _ = self.update_client(&self.chess_move_to_move(mv));
 
         return ret;
@@ -207,8 +210,6 @@ impl ChessGame for RemoteHostGame {
 
     fn wait_move(&mut self) -> bool {
         let _ = self.handle_client_move();
-        let mv = self.last_client_move;
-        let _ = self.update_client(&mv);
         return true;
     }
 
